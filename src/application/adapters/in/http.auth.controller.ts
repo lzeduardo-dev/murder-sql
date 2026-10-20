@@ -5,7 +5,7 @@ export class AuthController {
   constructor(private readonly authenticateUser: AuthenticateUserUseCase) {}
 
   async handle(req: Request, res: Response) {
-    const { email, password } = req.body;
+    const { email, password } = req.body ?? {};
 
     if (!email || !password) {
       res.status(400).json({ error: "Email e senha são obrigatorios" });
