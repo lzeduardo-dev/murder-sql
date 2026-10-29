@@ -1,31 +1,55 @@
-import express from 'express';
+import express from "express";
 
-import { createPostgresPool } from "./application/adapters/out/postgres.connection.js";
-import { PostgresRepository } from "./application/adapters/out/postgres.user.repository.js";
-import { BcryptPasswordAdapter } from "./application/adapters/out/password-hasher.js"
 import { JwtAdapter } from "./application/adapters/out/jwt-adapter.js";
-import { RegisterUserUseCase } from "./application/use-cases/register.js";
+import { BcryptPasswordAdapter } from "./application/adapters/out/password-hasher.js";
+import { setupRoutes } from "./application/adapters/in/http.routes.js";
+import { PostgresRepository } from "./application/adapters/out/postgres.user.repository.js";
 import { AuthenticateUserUseCase } from "./application/use-cases/authentication.js";
-import { UserController } from "./application/adapters/in/http.user.controller.js";
 import { AuthController } from "./application/adapters/in/http.auth.controller.js";
+import { RegisterController } from "./application/adapters/in/http.register.controller.js";
+import { RegisterUserUseCase } from "./application/use-cases/register.js";
+import { createPostgresPool } from "./application/adapters/out/postgres.connection.js";
+import { PostgresRefreshTokenRepository } from "./application/adapters/out/postgres-refresh-token.repository.js";
+import { RefreshSessionUseCase } from "./application/use-cases/refresh-token.use-case.js";
+import { RefreshTokenController } from "./application/adapters/in/http.refresh.controller.js";
 
-const app = express();
-app.use(express.json());
+async function bootstrap() {
+    const app = express();
+    app.use(express.json()); // Habilita o parse de JSON no body
 
-const pool = createPostgresPool();
-const userRepository = new PostgresRepository(pool);
+    // 1. ADAPTADORES DE SAÍDA (Infraestrutura)
+    const jwtAdapter = new JwtAdapter();
 
-const passwordHasher = new BcryptPasswordAdapter()
-const tokenGenerator = new JwtAdapter();
+    const pool = createPostgresPool();
+    const userRepository = new PostgresRepository(pool);
+    const refreshTokenRepository = new PostgresRefreshTokenRepository(pool);
+    const passwordHasher = new BcryptPasswordAdapter();
 
-const registerUserUseCase = new RegisterUserUseCase(userRepository, passwordHasher);
-const authenticateUserUseCase = new AuthenticateUserUseCase(userRepository, passwordHasher, tokenGenerator);
+    // 2. CASOS DE USO (Core)
+    const authenticateUser = new AuthenticateUserUseCase(userRepository, passwordHasher, jwtAdapter, refreshTokenRepository);
+    const refreshSession = new RefreshSessionUseCase(jwtAdapter, refreshTokenRepository);
+    const registerUser = new RegisterUserUseCase(userRepository, passwordHasher);
 
-const userController = new UserController(registerUserUseCase);
-const authController = new AuthController(authenticateUserUseCase);
+    // 3. ADAPTADORES DE ENTRADA (Infraestrutura)
+    const authController = new AuthController(authenticateUser);
+    const registerController = new RegisterController(registerUser);
+    const refreshController = new RefreshTokenController(refreshSession);
 
-app.post('/users', (req, res) => userController.handle(req, res));
-app.post('/login', (req, res) => authController.handle(req, res));
+    
+   
+    const router = setupRoutes(
+        registerController, 
+        authController, 
+        refreshController
+    );
+    app.use("/api", router); // Todas as rotas ficarão sob o prefixo /api
+    
 
+    // 5. INICIALIZAÇÃO
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+        console.log(`Servidor rodando na porta ${PORT}`);
+    });
+}
 
-app.listen(3000, () => console.log("Server is running on port 3000"));
+bootstrap().catch(console.error);
