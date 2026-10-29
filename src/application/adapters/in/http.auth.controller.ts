@@ -4,7 +4,7 @@ import { AuthenticateUserUseCase } from "../../use-cases/authentication.js";
 export class AuthController {
   constructor(private readonly authenticateUser: AuthenticateUserUseCase) {}
 
-  async handle(req: Request, res: Response) {
+  handle = async (req: Request, res: Response): Promise<void> => {
     const { email, password } = req.body ?? {};
 
     if (!email || !password) {
@@ -13,10 +13,10 @@ export class AuthController {
     }
 
     try {
-      const { token } = await this.authenticateUser.execute(email, password);
-      res.status(200).json({ token });
+      const tokens = await this.authenticateUser.execute(email, password);
+      res.status(200).json(tokens);
     } catch (error: any) {
       res.status(401).json({ error: error.message });
     }
-  }
+  };
 }
