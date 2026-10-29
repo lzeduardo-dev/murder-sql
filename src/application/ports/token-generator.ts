@@ -1,6 +1,8 @@
 import type { User } from "../core/user.entity.js";
 
 export interface ITokenGenerator {
-    generate(user: User): string;
+    generateAccess(payload: any): string;
+    generateRefresh(payload: any): string;
     compare(token: string): any;
 }
+
