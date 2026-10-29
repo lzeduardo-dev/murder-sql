@@ -7,7 +7,7 @@
   "moduleResolution": "node",
   "target": "es2022",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "keywords": [],
   "author": "",
